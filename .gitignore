@@ -9,3 +9,4 @@ __pycache__/
 .idea/
 Thumbs.db
 desktop.ini
+todos.json
