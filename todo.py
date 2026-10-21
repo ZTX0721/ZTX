@@ -6,6 +6,8 @@ from datetime import datetime
 import argparse
 import sys
 
+#处理函数
+
 """读取 JSON 文件,返回列表
 文件不存在	返回空列表 [],不报错
 文件是空文件(0 字节)	返回空列表 [],不报错
@@ -79,14 +81,26 @@ def add_todo(todos: list[dict], text: str) -> dict:
 已经是 True 的再标记一次	保持 True	True
 """
 def mark_done(todos: list[dict], todo_id: int) -> bool:
-    todo_id = int(todo_id)
-    if todo_id <= 0:
-        raise ValueError("ID 应大于 0")
     for a in todos:
         if a.get("id") == todo_id:
             a["done"] = bool(1)
             return bool(1)
     return bool(0)
+
+"""从列表中删除指定 ID 的待办。
+找到该 ID	从列表里删掉这一条，其他条目原封不动	True
+没找到	列表一个字节都不能变	False
+空列表	不报错	False
+删掉中间那条	剩下的 ID 不变（不是重新编号！）	True
+"""
+def delete_todo(todos: list[dict], todo_id: int) -> bool:
+    for a in todos:
+        if a.get("id") == todo_id:
+            todos.remove(a)
+            return bool(1)
+    return bool(0)
+
+#处理命令
 
 def cmd_add(args) -> int:
     原列表=load_todos()
@@ -108,8 +122,8 @@ def cmd_list(args) -> int:
         print("还没有待办事项")
     else:
         for a in 原列表:
-            状态="[x]" if a.get("done") else "[ ]"          
-            print(f"{状态} #{a.get('id')} {a.get('text')}")
+            状态="[x]" if a.get("done") else "[ ]"
+            print(f"{状态} #{a.get('id')}: {a.get('text')}")
     return 0
 """处理 list 子命令。
 1. 读数据
@@ -119,20 +133,41 @@ def cmd_list(args) -> int:
 """
 
 def cmd_done(args) -> int:
+    if args.id <= 0:
+        print("ID 应大于 0")
+        return 1
     原列表=load_todos()
-    a=mark_done(原列表, args.id)
-    if not a:
+    目标 = next((t for t in 原列表 if t.get("id") == args.id), None)
+    if 目标 is None:
         print(f"未找到 #{args.id}")
         return 1
     else:
+        mark_done(原列表, args.id)
         save_todos(原列表)
-        print(f"已完成 #{args.id}")
+        print(f"已完成 #{args.id}: {目标.get('text')}")
         return 0
 """处理 done 子命令。
 1. 读数据
 2. 调 mark_done
 3. 成功 → 保存 + 打印 "已完成 #id"
 4. 失败 → 打印 "未找到 #id", 返回 1
+"""
+
+def cmd_delete(args) -> int:
+    if args.id <= 0:
+        print("ID 应大于 0")
+        return 1
+    原列表=load_todos()
+    目标 = next((t for t in 原列表 if t.get("id") == args.id), None)
+    if 目标 is None:
+        print(f"未找到 #{args.id}")
+        return 1
+    else:
+        delete_todo(原列表, args.id)
+        save_todos(原列表)
+        print(f"已删除 #{args.id}: {目标.get('text')}")
+        return 0
+"""处理 delete 子命令
 """
 
 
@@ -152,18 +187,19 @@ def build_parser() -> argparse.ArgumentParser:
     子命令_done.add_argument("id", type=int, help="待办编号")
     子命令_done.set_defaults(func=cmd_done)
 
+    子命令_delete = 子命令支持.add_parser('delete', help='删除事项')
+    子命令_delete.add_argument("id", type=int, help="待删除编号")
+    子命令_delete.set_defaults(func=cmd_delete)
+
     return 解析器
-    # ★ 这里需要 subparsers, 去查文档 ★
 
 
 def main(argv: list[str] | None = None) -> int:
     解析器 = build_parser()
     args = 解析器.parse_args(argv)
-    if not hasattr(args, "func"):        # ★ 没有子命令
+    if not hasattr(args, "func"):
         解析器.print_help()
         return 0
-    # ★ 关键: args 里要有一个"该调用哪个函数"的字段 ★
-    # 没有子命令时怎么办?
     return args.func(args)
 
 

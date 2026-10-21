@@ -146,9 +146,11 @@ def test_cli_delete() -> None:
     # 造数据
     save_todos(make_three(), os.path.join(d, "todos.json"))
 
+    env = dict(os.environ, PYTHONIOENCODING="utf-8")
+
     def run(*args: str) -> subprocess.CompletedProcess:
         return subprocess.run([sys.executable, "todo.py", *args],
-                              cwd=d, capture_output=True, text=True, encoding="utf-8")
+                              cwd=d, capture_output=True, text=True, encoding="utf-8",env=env)
 
     r = run("delete", "2")
     assert r.returncode == 0, f"退出码应为 0,实际 {r.returncode};stderr={r.stderr!r}"
