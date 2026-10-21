@@ -1,3 +1,8 @@
+#个人
+.env
+*.key
+
+##DSH
 __pycache__/
 *.py[cod]
 .venv/
@@ -10,3 +15,27 @@ __pycache__/
 Thumbs.db
 desktop.ini
 todos.json
+
+##GPT
+# 环境变量及真实凭据
+.env
+.env.*
+!.env.example
+secrets.json
+credentials.json
+service-account.json
+# 数据库和本地数据
+*.sqlite
+*.db
+*.sql
+*.dump
+*.bak
+# 日志与临时文件
+*.log
+*.tmp
+*.swp
+*.orig
+*.old
+# 常见构建产物
+dist/
+build/
