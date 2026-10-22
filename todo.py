@@ -6,7 +6,27 @@ from datetime import datetime
 import argparse
 import sys
 
-#处理函数
+"""不处理,校验待办内容,输出效验码0/1,正常为0,不合法为1,"""
+def _text(text: str) -> int:
+    try:
+        a = str(text).strip()
+    except :
+        return 1#代办内容不合法
+    if not a:
+        return 2#待办内容不能为空
+    return bool(0)
+
+"""不处理,校验id,输出效验码0/1,正常为0,不合法为1,"""
+def _id(id: int) -> int:
+    try:
+        a=int(id)
+    except :
+        return 1#ID不合法
+    if a<=0 :
+        return 2#ID应大于0
+    return bool(0)
+
+#处理函数, 请确认输入的数据正确且不为空
 
 """读取 JSON 文件,返回列表
 文件不存在	返回空列表 [],不报错
@@ -64,7 +84,7 @@ created_at 用当前时间,格式 YYYY-MM-DD HH:MM:SS
 如果 text 清理后是空字符串	抛出 ValueError
 """
 def add_todo(todos: list[dict], text: str) -> dict:
-    if not text.strip():
+    if _text(text):
         raise ValueError("待办内容不能为空")
     新增={
     "id": next_id(todos),
@@ -100,21 +120,33 @@ def delete_todo(todos: list[dict], todo_id: int) -> bool:
             return bool(1)
     return bool(0)
 
+"""修改指定 ID 的待办内容。
+成功返回 True,找不到返回 False。
+new_text 两端空白清掉;清理后为空则抛 ValueError。
+只改 text,id / done / created_at 必须原样保留。
+"""
+def edit_todo(todos: list[dict], todo_id: int, new_text: str) -> bool:
+    if _text(new_text):
+        raise ValueError("待办内容不能为空")
+    for a in todos:
+        if a.get("id") == todo_id:
+            a["text"] = new_text.strip()
+            return bool(1)
+    return bool(0)
+
 #处理命令
 
 def cmd_add(args) -> int:
+    if _text(args.text):
+        if _text(args.text)==2:
+            print('待办内容不能为空')
+        return 1
     原列表=load_todos()
-    添加字典=add_todo(原列表, args.text)
+    添加字典=add_todo(原列表, args.text.strip())
     save_todos(原列表)
     print(f"已添加 #{添加字典['id']}: {添加字典['text']}")
     return 0
-"""处理 add 子命令。
- 1. 读数据(load_todos)
- 2. 调 add_todo
- 3. 保存(save_todos)
- 4. 打印 "已添加 #id: text"
- 5. 返回 0
-"""
+#处理 add 子命令,添加一条待办
 
 def cmd_list(args) -> int:
     原列表=load_todos()
@@ -125,16 +157,12 @@ def cmd_list(args) -> int:
             状态="[x]" if a.get("done") else "[ ]"
             print(f"{状态} #{a.get('id')}: {a.get('text')}")
     return 0
-"""处理 list 子命令。
-1. 读数据
-2. 空 → 打印 "还没有待办事项"
-3. 非空 → 逐条打印 "[ ] #1 xxx" 或 "[x] #1 xxx"
-4. 返回 0
-"""
+#处理 list 子命令,查看所有事项
 
 def cmd_done(args) -> int:
-    if args.id <= 0:
-        print("ID 应大于 0")
+    if _id(args.id):
+        if _id(args.id)==2:
+            print('ID应大于0')
         return 1
     原列表=load_todos()
     目标 = next((t for t in 原列表 if t.get("id") == args.id), None)
@@ -146,16 +174,12 @@ def cmd_done(args) -> int:
         save_todos(原列表)
         print(f"已完成 #{args.id}: {目标.get('text')}")
         return 0
-"""处理 done 子命令。
-1. 读数据
-2. 调 mark_done
-3. 成功 → 保存 + 打印 "已完成 #id"
-4. 失败 → 打印 "未找到 #id", 返回 1
-"""
+#处理 done 子命令,标记事项为完成
 
 def cmd_delete(args) -> int:
-    if args.id <= 0:
-        print("ID 应大于 0")
+    if _id(args.id):
+        if _id(args.id)==2:
+            print('ID应大于0')
         return 1
     原列表=load_todos()
     目标 = next((t for t in 原列表 if t.get("id") == args.id), None)
@@ -164,11 +188,29 @@ def cmd_delete(args) -> int:
         return 1
     else:
         delete_todo(原列表, args.id)
-        save_todos(原列表)
         print(f"已删除 #{args.id}: {目标.get('text')}")
+        save_todos(原列表)
         return 0
-"""处理 delete 子命令
-"""
+#处理 delete 子命令,删除事项
+
+def cmd_edit(args) -> int:
+    if _id(args.id) or _text(args.text):
+        if _text(args.text)==2:
+            print('待办内容不能为空')
+        if _id(args.id)==2:
+            print('ID应大于0')
+        return 1
+    原列表=load_todos()
+    目标 = next((t for t in 原列表 if t.get("id") == args.id), None)
+    if 目标 is None:
+        print(f"未找到 #{args.id}")
+        return 1
+    else:
+        edit_todo(原列表,args.id,args.text)
+        save_todos(原列表)
+        print(f"已修改 #{args.id}: {args.text.strip()}")
+        return 0
+#处理 edit 子命令,修改事项
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -177,7 +219,7 @@ def build_parser() -> argparse.ArgumentParser:
     子命令支持=解析器.add_subparsers(title="子命令列表", dest="cmd")
 
     子命令_add = 子命令支持.add_parser('add', help='添加一条待办')
-    子命令_add.add_argument("text", help="待办内容") 
+    子命令_add.add_argument("text", type=str, help="待办内容") 
     子命令_add.set_defaults(func=cmd_add)
 
     子命令_list = 子命令支持.add_parser('list', help='查看所有事项')
@@ -190,6 +232,11 @@ def build_parser() -> argparse.ArgumentParser:
     子命令_delete = 子命令支持.add_parser('delete', help='删除事项')
     子命令_delete.add_argument("id", type=int, help="待删除编号")
     子命令_delete.set_defaults(func=cmd_delete)
+
+    子命令_edit = 子命令支持.add_parser('edit', help='修改事项')
+    子命令_edit.add_argument("id", type=int, help="待修改编号")
+    子命令_edit.add_argument("text", type=str, help="待改入内容")
+    子命令_edit.set_defaults(func=cmd_edit)
 
     return 解析器
 
